@@ -376,18 +376,15 @@ TEST_F(MethodTest, SetInputRejectsOverflowingSizes) {
   EXPECT_NE(input_err, Error::Ok);
 }
 
+namespace {
+
 // Program validation skips the byte count check for a dynamic input and leaves
 // it to set_input(), and with minimal verification nothing checks it at load.
-// Without it, a memory-planned input sized from such a bound gets a buffer too
-// small for the tensor set_input() copies in. Here the dynamic input of the cat
-// program gets a ComplexDouble upper bound of 2^30 x 2^30, whose byte count
-// wraps to 0 on a 64-bit machine. The flatbuffer cannot gain a memory plan in
-// place, so this input stays caller-owned, and set_input() refuses it all the
-// same, as it did before reading the bound straight from the program.
-TEST_F(MethodTest, SetInputRejectsABoundWhoseByteCountOverflows) {
-  std::ifstream file(
-      std::getenv("ET_MODULE_DYNAMIC_CAT_UNALLOCATED_IO_PATH"),
-      std::ios::binary);
+// This gives the dynamic input of the cat program at `path` a ComplexDouble
+// upper bound of 2^30 x 2^30, whose byte count wraps to 0 on a 64-bit machine,
+// and checks what set_input() returns for a 2 x 2 tensor.
+void expect_set_input_with_overflowing_bound(const char* path, Error expected) {
+  std::ifstream file(path, std::ios::binary);
   ASSERT_TRUE(file.good());
   std::vector<uint8_t> bytes(
       (std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
@@ -428,8 +425,23 @@ TEST_F(MethodTest, SetInputRejectsABoundWhoseByteCountOverflows) {
       dim_order,
       strides);
   EXPECT_EQ(
-      method->set_input(EValue(executorch::aten::Tensor(&impl)), 0),
-      Error::InvalidArgument);
+      method->set_input(EValue(executorch::aten::Tensor(&impl)), 0), expected);
+}
+
+} // namespace
+
+// A memory-planned input gets a buffer sized from the overflowed byte count,
+// too small for the tensor set_input() would copy in.
+TEST_F(MethodTest, SetInputRejectsAPlannedBoundWhoseByteCountOverflows) {
+  expect_set_input_with_overflowing_bound(
+      std::getenv("ET_MODULE_DYNAMIC_CAT_PATH"), Error::InvalidArgument);
+}
+
+// A caller-owned input shares the caller's buffer, so nothing is sized from
+// the bound.
+TEST_F(MethodTest, SetInputAcceptsACallerOwnedBoundWhoseByteCountOverflows) {
+  expect_set_input_with_overflowing_bound(
+      std::getenv("ET_MODULE_DYNAMIC_CAT_UNALLOCATED_IO_PATH"), Error::Ok);
 }
 
 // The "cat" model (ModuleDynamicCatUnallocatedIO) is DYNAMIC_BOUND with a

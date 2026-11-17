@@ -1461,10 +1461,12 @@ Method::set_input(const EValue& input_evalue, size_t input_idx) {
         input_idx);
     // Nothing at load checks this for a dynamic input. Program validation, when
     // enabled, leaves it to set_input(), since a bound written for a 64-bit
-    // machine may overflow on a 32-bit one. A memory-planned input sized from
-    // such a bound has a buffer too small for the copy below.
+    // machine may overflow on a 32-bit one. Only a memory-planned input has a
+    // buffer sized from that bound, too small for the copy below if it
+    // overflows. Any other input shares the caller's buffer checked above.
+    const bool memory_planned = deserialization::is_memory_planned(*s_tensor);
     ET_CHECK_OR_RETURN_ERROR(
-        validate_tensor(s_tensor) == Error::Ok,
+        !memory_planned || validate_tensor(s_tensor) == Error::Ok,
         InvalidArgument,
         "Input %" ET_PRIsize_t
         " has serialized sizes whose byte count overflows",
@@ -1514,7 +1516,7 @@ Method::set_input(const EValue& input_evalue, size_t input_idx) {
     t_dst.unsafeGetTensorImpl()->set_sizes_and_strides(
         t_src.sizes(), t_src.strides());
 #endif
-    if (deserialization::is_memory_planned(*s_tensor)) {
+    if (memory_planned) {
       ET_CHECK_OK_OR_RETURN_ERROR(
           internal::copy_tensor_data(t_dst, t_src),
           "Error copying tensor data at input %" ET_PRIsize_t,

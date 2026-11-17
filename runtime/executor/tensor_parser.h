@@ -48,10 +48,10 @@ ET_NODISCARD Result<BoxedEvalueList<executorch::aten::Tensor>> parseTensorList(
     size_t values_len,
     MemoryManager* memory_manager);
 
-// Whether the program provides the data of a serialized tensor, from its memory
-// plan or from its constant data, rather than the caller. MethodMeta reports
-// this as TensorInfo::is_memory_planned(), and Method::set_input() copies into
-// such an input rather than sharing the caller's buffer.
+// Whether a serialized tensor has a slot in the memory plan (allocation_info)
+// or data stored in the program (data_buffer_idx != 0). MethodMeta reports this
+// as TensorInfo::is_memory_planned(), and Method::set_input() copies into such
+// an input rather than sharing the caller's buffer.
 inline bool is_memory_planned(const executorch_flatbuffer::Tensor& s_tensor) {
   return s_tensor.allocation_info() != nullptr ||
       s_tensor.data_buffer_idx() != 0;
