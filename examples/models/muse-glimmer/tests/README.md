@@ -24,9 +24,11 @@ ctest --test-dir cmake-out/examples/models/muse-glimmer-batching \
 ```
 
 The tiny PTEs cover rejection, cache lifecycle, packed owners, and legacy
-artifacts against eager references.
+artifacts against eager references. Seeded continuations are compared across
+prompt chunking and mixed prefill/decode batches for both draft formats.
 Routing-sensitive fixtures also compare per-round tokens and acceptance counts
 between solo and packed execution with unequal prompts and reordered owners.
+Input-sensitive continuations check shared-payload slices against target-only decoding.
 A vendored stateless official reference separately checks DFlash2 model semantics,
 including sliding-window boundaries. Native sampling checks target-only,
 original DFlash, and DFlash2 at temperature 0.8 with top-k/top-p filtering;
